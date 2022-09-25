@@ -1,0 +1,12 @@
+#!/bin/sh
+DATABASE="bd"
+
+passwd=`pass study/mysql.db` 
+query_file=$1
+
+if [ -n "$query_file" ]; then
+    cat "$query_file" | mysql --password="$passwd" "$DATABASE"
+else
+    echo "No file $query_file"
+    exit 1
+fi
