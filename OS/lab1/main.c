@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
     testData[size1 - 1] = '\0';
     printf("%s\n", testData);
 
-    fprintf(stderr, "Remaining allicator memory: %d\n", RemainingFreeSpace(&customAlloc));
+    fprintf(stderr, "Remaining allocator memory: %d\n", RemainingFreeSpace(&customAlloc));
     fprintf(stderr, "\n");
 
     fprintf(stderr, "Allocating new data %d * %d bytes\n", size2, size2);
@@ -47,15 +47,25 @@ int main(int argc, char* argv[]) {
         printf("\n");
     }
 
-    fprintf(stderr, "Remaining allicator memory: %d\n", RemainingFreeSpace(&customAlloc));
+    unsigned remainingMemory = RemainingFreeSpace(&customAlloc);
+    fprintf(stderr, "Remaining allocator memory: %d\n", remainingMemory);
     fprintf(stderr, "\n");
 
-    fprintf(stderr, "Deallocating array of %d bytes\n", size1);
+    fprintf(stderr, "Allocating all remaining memory\n");
+    void* tempPointer = CustomMalloc(&customAlloc, remainingMemory);
 
-    CustomFree(&customAlloc, testData, size1);
-
-    fprintf(stderr, "Remaining allicator memory: %d\n", RemainingFreeSpace(&customAlloc));
+    fprintf(stderr, "Remaining allocator memory: %d\n", RemainingFreeSpace(&customAlloc));
     fprintf(stderr, "\n");
+
+    void* shouldBeNullptr = CustomMalloc(&customAlloc, 256);
+    if (shouldBeNullptr) {
+        fprintf(stderr, "Allocated memory. It shouldn't\n");
+#ifdef DEBUG
+        abort();
+#else
+        return 1;
+#endif
+    }
 
     fprintf(stderr, "Deallocating %d * %d bytes\n", size2, size2);
 
@@ -63,7 +73,27 @@ int main(int argc, char* argv[]) {
         CustomFree(&customAlloc, testMatrix[i], size2);
     }
 
-    fprintf(stderr, "Remaining allicator memory: %d\n", RemainingFreeSpace(&customAlloc));
+    remainingMemory = RemainingFreeSpace(&customAlloc);
+    fprintf(stderr, "Remaining allocator memory: %d\n", remainingMemory);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "Trying allocate %d bytes\n", remainingMemory);
+
+    tempPointer = CustomMalloc(&customAlloc, remainingMemory);
+    if (!tempPointer) {
+        fprintf(stderr, "Didn't alocate memory. It should\n");
+#ifdef DEBUG
+        abort();
+#else
+        return 1;
+#endif
+    }
+
+    fprintf(stderr, "Deallocating array of %d bytes\n", size1);
+
+    CustomFree(&customAlloc, testData, size1);
+
+    fprintf(stderr, "Remaining allocator memory: %d\n", RemainingFreeSpace(&customAlloc));
     fprintf(stderr, "\n");
 
     DestroyAlloc(&customAlloc);

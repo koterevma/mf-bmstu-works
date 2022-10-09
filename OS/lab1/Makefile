@@ -1,5 +1,5 @@
 CC=clang
-CFLAGS=-Wall -g
+CFLAGS=-Wall -g -DDEBUG
 LDFLAGS=-g
 SOURCES=$(wildcard *.c)
 OBJECTS=$(SOURCES:.c=.o)
