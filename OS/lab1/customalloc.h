@@ -1,20 +1,27 @@
 #ifndef CUSTOMALLOC_H
 #define CUSTOMALLOC_H
-#include <stdbool.h>
+
+struct List;
+typedef struct List List;
+typedef List* ListP;
+
+struct List {
+    ListP next;
+    unsigned size;
+};
 
 typedef struct CustomAlloc {
-    int PoolSize;
-    char* MemoryPool;
-    bool* BitMap;
+    ListP head;
+    void* mempool;
 } CustomAlloc;
 
-CustomAlloc* InitAlloc(int size);
+void InitAlloc(CustomAlloc* customAlloc, unsigned size);
 
-void* CustomMalloc(CustomAlloc* customAlloc, int size);
+void* CustomMalloc(CustomAlloc* customAlloc, unsigned size);
 
-void CustomFree(CustomAlloc* customAlloc, void* mem, int size);
+void CustomFree(CustomAlloc* customAlloc, void* mem, unsigned size);
 
-int RemainingFreeSpace(CustomAlloc* customAlloc);
+unsigned RemainingFreeSpace(CustomAlloc* customAlloc);
 
 void DestroyAlloc(CustomAlloc* customAlloc);
 

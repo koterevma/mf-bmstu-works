@@ -1,56 +1,72 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "customalloc.h"
-#include "list.h"
+
+#define MAX_ALLOC_SIZE 1000
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Not enough args, argc < 2\n");
-        return 1;
+    int size1 = 30; // Array N
+    int size2 = 16; // Matrix N*N
+
+    CustomAlloc customAlloc;
+    InitAlloc(&customAlloc, MAX_ALLOC_SIZE);
+
+    fprintf(stderr, "Allocating %d bytes for array of char\n", size1);
+
+    char* testData = CustomMalloc(&customAlloc, size1);
+
+    fprintf(stderr, "Testing allocated chars\n");
+
+    char c = 'a';
+    for(int i = 0; i < size1 - 1; ++i) {
+        testData[i] = c++;
     }
+    testData[size1 - 1] = '\0';
+    printf("%s\n", testData);
 
-    int size = atoi(argv[1]);
-
-    fprintf(stderr, "Generating list of size %d\n", size);
-
-    CustomAlloc* customAlloc = InitAlloc(size * sizeof(List));
-
-    ListP list = InitList(customAlloc, size);
-
-    PrintList(list);
+    fprintf(stderr, "Remaining allicator memory: %d\n", RemainingFreeSpace(&customAlloc));
     fprintf(stderr, "\n");
 
-    fprintf(stderr, "Current available size of alloc is %d\n", RemainingFreeSpace(customAlloc));
+    fprintf(stderr, "Allocating new data %d * %d bytes\n", size2, size2);
 
-    int deallocNum = size / 2;
-    fprintf(stderr, "Deallocating %d elements, %lu bytes\n", deallocNum, sizeof(List) * deallocNum);
-
-    for (int i = 0; i < deallocNum / 2; ++i) {
-        list = PopHead(customAlloc, list);
+    char* testMatrix[16];
+    c = 'a';
+    for (int i = 0; i < size2; ++i) {
+        testMatrix[i] = CustomMalloc(&customAlloc, size2);
+        char cc = c;
+        for (int j = 0; j < size2; ++j) {
+            testMatrix[i][j] = cc++;
+        }
+        c++;
     }
 
-    for (int i = 0; i < deallocNum - deallocNum / 2; ++i) {
-        PopTail(customAlloc, list);
+    for (int i = 0; i < size2; ++i) {
+        for (int j = 0; j < size2; ++j) {
+            printf("%c", testMatrix[i][j]);
+        }
+        printf("\n");
     }
 
-    PrintList(list);
+    fprintf(stderr, "Remaining allicator memory: %d\n", RemainingFreeSpace(&customAlloc));
     fprintf(stderr, "\n");
 
-    int currentAvailableSize = RemainingFreeSpace(customAlloc);
-    fprintf(stderr, "Current available size of alloc is %d\n", currentAvailableSize);
+    fprintf(stderr, "Deallocating array of %d bytes\n", size1);
 
-    int newListSize = currentAvailableSize / sizeof(List);
-    fprintf(stderr, "Allocating new list of size %d\n", newListSize);
+    CustomFree(&customAlloc, testData, size1);
 
-    ListP newList = InitList(customAlloc, newListSize);
-
-    fprintf(stderr, "New list has been initialized\n");
-
-    PrintList(newList);
+    fprintf(stderr, "Remaining allicator memory: %d\n", RemainingFreeSpace(&customAlloc));
     fprintf(stderr, "\n");
 
-    fprintf(stderr, "Current available size of alloc is %d\n", RemainingFreeSpace(customAlloc));
+    fprintf(stderr, "Deallocating %d * %d bytes\n", size2, size2);
 
-    DestroyAlloc(customAlloc);
+    for (int i = 0; i < size2; ++i) {
+        CustomFree(&customAlloc, testMatrix[i], size2);
+    }
+
+    fprintf(stderr, "Remaining allicator memory: %d\n", RemainingFreeSpace(&customAlloc));
+    fprintf(stderr, "\n");
+
+    DestroyAlloc(&customAlloc);
+
     return 0;
 }

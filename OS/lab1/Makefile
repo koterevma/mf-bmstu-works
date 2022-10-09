@@ -1,7 +1,7 @@
 CC=clang
-CFLAGS=-c -Wall -g
+CFLAGS=-Wall -g
 LDFLAGS=-g
-SOURCES=main.c customalloc.c list.c
+SOURCES=$(wildcard *.c)
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=lab1
 
@@ -11,7 +11,7 @@ $(EXECUTABLE): $(OBJECTS)
 	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
 
 %.o: %.c
-	$(CC) $(CFLAGS) $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 .PHONY: clean
 
