@@ -77,9 +77,9 @@ int main(int argc, char* argv[]) {
     fprintf(stderr, "Remaining allocator memory: %d\n", remainingMemory);
     fprintf(stderr, "\n");
 
-    fprintf(stderr, "Trying allocate %d bytes\n", remainingMemory);
+    fprintf(stderr, "Trying allocate %lu bytes\n", remainingMemory - sizeof(List));
 
-    tempPointer = CustomMalloc(&customAlloc, remainingMemory);
+    tempPointer = CustomMalloc(&customAlloc, remainingMemory - sizeof(List));
     if (!tempPointer) {
         fprintf(stderr, "Didn't alocate memory. It should\n");
 #ifdef DEBUG
@@ -88,6 +88,10 @@ int main(int argc, char* argv[]) {
         return 1;
 #endif
     }
+
+    remainingMemory = RemainingFreeSpace(&customAlloc);
+    fprintf(stderr, "Remaining allocator memory: %d\n", remainingMemory);
+    fprintf(stderr, "\n");
 
     fprintf(stderr, "Deallocating array of %d bytes\n", size1);
 
