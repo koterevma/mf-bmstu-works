@@ -1,6 +1,6 @@
 CC=clang
-CFLAGS=-Wall -g -DDEBUG
-LDFLAGS=-g
+CFLAGS=-Wall
+LDFLAGS=
 SOURCES=$(wildcard *.c)
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=lab1
@@ -13,7 +13,13 @@ $(EXECUTABLE): $(OBJECTS)
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
-.PHONY: clean
+debug: CFLAGS += -g -DDEBUG
+debug: LDFLAGS += -g
+debug: all
 
+release: CFLAGS += -O2 -DNDEBUG
+release: all
+
+.PHONY: clean
 clean:
-	rm -f $(EXECUTABLE) *.o
+	rm -f $(EXECUTABLE) $(OBJECTS)
