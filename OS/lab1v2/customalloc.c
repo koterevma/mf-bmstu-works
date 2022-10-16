@@ -82,14 +82,14 @@ void* mem_alloc(Allocator* allocator, unsigned short size) {
 
     while (block) {
         Tag* tag = (Tag*) ((void*)block - sizeof(Tag));
-        if ((*tag & MASK_FREE) && (*tag & MASK_SIZE) >= size) {
+        if ((*tag & MASK_FREE) && (*tag & MASK_SIZE) >= size + sizeof(Tag) + sizeof(List)) {
             new_block = init_new_clean_block((void*)block + size, (*tag & MASK_SIZE) - size);
 
             *tag = size;
             *tag &= ~MASK_FREE;
 
             break;
-        }
+        }    
         block = block->next;
     }
 

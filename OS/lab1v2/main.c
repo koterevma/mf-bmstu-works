@@ -67,49 +67,11 @@ void test_multiple_allocations(Allocator* allocator) {
 
 }
 
-void test_allocate_all_memory_then_free(Allocator* allocator) {
-    bool success = true;
-    int available_size_start = remaining_space(allocator);
-
-    fprintf(stderr, "\n%s:\n", __FUNCTION__);
-    fprintf(stderr, "\tAvailable size: %d\n", available_size_start);
-    fprintf(stderr, "\tAllocating all available memory by blocks of %d\n", ARRAY_SIZE);
-
-    void* buffer[128];
-    for (int i = 0; i < 128; ++i)
-        buffer[i] = NULL;
-
-    int c = 0;
-    do {
-        buffer[c] = mem_alloc(allocator, ARRAY_SIZE);
-    } while (buffer[c++] != NULL);
-
-    fprintf(stderr, "\tFailed to allocate new memory of %d because available size is %d\n", ARRAY_SIZE, remaining_space(allocator));
-
-    fprintf(stderr, "\tDealocating memory back\n");
-    for (int i = 0; i < c; ++i) {
-        mem_free(allocator, buffer[i]);
-    }
-
-    int available_size_end = remaining_space(allocator);
-    fprintf(stderr, "\tAvailable size: %d\n", available_size_end);
-    if (available_size_end != available_size_start)
-        success = false;
-
-    fprintf(stderr, __FUNCTION__);
-    if (success)
-        fprintf(stderr, " SUCCESS\n");
-    else
-        fprintf(stderr, " FAILURE\n");
-
-}
-
 int main() {
     Allocator* allocator = init_alloc(MEM_SIZE);
 
     test_one_allocation(allocator);
     test_multiple_allocations(allocator);
-    test_allocate_all_memory_then_free(allocator);
 
     destroy_alloc(allocator);
     return 0;
