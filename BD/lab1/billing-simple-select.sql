@@ -1,0 +1,1 @@
+select * from billing_simple.billing
