@@ -1,11 +1,20 @@
 package ru.lib;
 
 import java.io.*;
+import java.nio.ByteBuffer;
+import java.util.TreeMap;
+import java.util.TreeSet;
+
 import ru.lib.tm.*;
 
 public class BinaryReader {
     // номер параметра служебного сообщения
     protected final int SYSTEM_MESSAGE_PARAM = 0xFFFF;
+    private final short paramNumSize = 2;
+    private final short timeSize = 4;
+    private final short dimensionSize = 1;
+
+
 
     protected BufferedInputStream inputStream;
     protected BufferedWriter outputWriter;
@@ -22,16 +31,49 @@ public class BinaryReader {
     protected int position = -1;
     protected String tmpString = "";
 
+    // New iteration
+    protected byte[] buffer;
+    protected short offset = 0;
+
     protected Statistics statistics;
+
+    final static int BUFFER_SIZE = 4096;
 
     public BinaryReader(String inputFilePath, String outputFilePath, XmlParamElement[] xmlParamElements) throws IOException {
         this.inputStream = new BufferedInputStream(new FileInputStream(inputFilePath));
         this.outputWriter = new BufferedWriter(new FileWriter(outputFilePath));
         this.xmlParamElements = xmlParamElements;
         this.statistics = new Statistics();
+        this.buffer = new byte[BUFFER_SIZE];
     }
 
-    public void readAndWrite() throws IOException {
+    public void ParseKnpTo(TreeSet<TmDat> tmSet) {
+        boolean parsedSuccessfully = true;
+        while (parsedSuccessfully) {
+            try {
+                this.inputStream.readNBytes(this.buffer, this.offset, paramNumSize + timeSize);
+            } catch (IOException e) {
+                parsedSuccessfully = false;
+                break;
+            }
+            int paramNum = parseParamNum((short)0);
+            int time = parseTime(paramNumSize);
+
+        }
+    }
+
+
+    private int parseParamNum(short s) {
+        ByteBuffer wrapped = ByteBuffer.wrap(this.buffer, 0, paramNumSize);
+        return wrapped.getInt();
+	}
+
+	private int parseTime(short offset) {
+        ByteBuffer wrapped = ByteBuffer.wrap(this.buffer, paramNumSize, timeSize);
+        return wrapped.getInt();
+	}
+
+	public void readAndWrite() throws IOException {
         while ((this.currentByte = this.inputStream.read()) != -1) {
             this.currentByteHex = String.format("%02x", currentByte);
 
