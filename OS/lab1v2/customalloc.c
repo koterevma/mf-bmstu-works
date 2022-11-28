@@ -1,6 +1,7 @@
 #include "customalloc.h"
 #include <stddef.h>
 #include <malloc.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 typedef unsigned short Tag;
@@ -20,6 +21,7 @@ struct List {
 
 typedef struct _Allocator {
     List* head;
+    List* last_freed;
     void* memstart;
 } Allocator;
 
@@ -27,34 +29,46 @@ static Tag* get_tag(void* block) {
     return block - sizeof(Tag);
 }
 
-static void clean_holes(Allocator* allocator) {
+static void clean_holes(Allocator* allocator, List* block) {
     if (!allocator->head)
+        // We are out of free blocks - nothing to clean
         return;
 
-    List* block = allocator->head;
-    while (block->next) {
-        Tag* tag = get_tag(block);
-        if ((void*)block + (*tag & MASK_SIZE) + sizeof(Tag) == block->next) {
-            Tag* next_tag = get_tag(block->next);
-            *tag = MASK_FREE | ((*tag & MASK_SIZE) + (*next_tag & MASK_SIZE) + sizeof(Tag));
+    Tag* tag;
+    if (block != allocator->head) {
+        // Get prev block tag
+        tag = get_tag((void*)block - sizeof(Tag));
 
-            block->next = block->next->next;
-            if (block->next)
-                block->next->prev = block;
-            continue;
+        // If previous block is free
+        if (tag & MASK_FREE) {
+            List* prev_block = (void*) block - (*tag & MASK_SIZE) - sizeof(Tag);
+            init_new_clean_block(prev_block, (*tag & MASK_SIZE) + (get_tag(block) & MASK_SIZE) + 2 * sizeof(Tag);
         }
-        block = block->next;
+
+        // Get next block tag
+        tag = get_tag((void*)block + (get_tag(block) & MASK_SIZE) + 2 * sizeof(Tag));
+
+        // If next block is free
+        if (tag & MASK_FREE) {
+            List* next_block = (void*) block + (*tag & MASK_SIZE) + 2 * sizeof(Tag);
+            init_new_clean_block(block, (*tag & MASK_SIZE) + (get_tag(block) & MASK_SIZE) + 2 * sizeof(Tag);
+        }
     }
 }
 
 static List* init_new_clean_block(void* memstart, unsigned short size) {
     Tag* tag = memstart;
-    *tag = (size - sizeof(Tag)) & MASK_SIZE;
+    *tag = (size - sizeof(Tag) * 2) & MASK_SIZE;
     *tag |= MASK_FREE;
 
     List* block = (List*) (memstart + sizeof(Tag));
     block->next = NULL;
     block->prev = NULL;
+
+    // Init second tag at the end of free block
+    tag = memstart + size - sizeof(Tag);
+    *tag = (size - sizeof(Tag) * 2) & MASK_SIZE;
+    *tag |= MASK_FREE;
 
     return block;
 }
@@ -65,6 +79,7 @@ Allocator* init_alloc(unsigned short size) {
 
     Allocator* allocator = malloc(sizeof(Allocator));
     allocator->memstart = malloc(size);
+    allocator->last_freed = NULL;
 
     List* head = init_new_clean_block(allocator->memstart, size);
 
@@ -78,18 +93,38 @@ void* mem_alloc(Allocator* allocator, unsigned short size) {
         return NULL;
 
     List* block = allocator->head;
+    if (!block) {
+        return NULL;
+    }
+
+    bool started_from_last_freed = false;
+    if (allocator->last_freed) {
+        block = allocator->last_freed;
+
+        started_from_last_freed = true;
+    }
     List* new_block = NULL;
 
-    while (block) {
+    while (block || started_from_last_freed) {
+        if (!block) {
+            block = allocator->head;
+            started_from_last_freed = false;
+        }
+
         Tag* tag = (Tag*) ((void*)block - sizeof(Tag));
-        if ((*tag & MASK_FREE) && (*tag & MASK_SIZE) >= size + sizeof(Tag) + sizeof(List)) {
-            new_block = init_new_clean_block((void*)block + size, (*tag & MASK_SIZE) - size);
+        if ((*tag & MASK_FREE) && (*tag & MASK_SIZE) >= size + 2 * sizeof(Tag) + sizeof(List)) {
+            new_block = init_new_clean_block((void*)block + size + 2 * sizeof(Tag), (*tag & MASK_SIZE) - size - sizeof(Tag));
+
+            *tag = size;
+            *tag &= ~MASK_FREE;
+
+            tag = (Tag*) ((void*)block + size);
 
             *tag = size;
             *tag &= ~MASK_FREE;
 
             break;
-        }    
+        }
         block = block->next;
     }
 
@@ -129,7 +164,7 @@ void mem_free(Allocator* allocator, void* mem) {
         new_block->next = allocator->head;
         allocator->head->prev = new_block;
         allocator->head = new_block;
-        clean_holes(allocator);
+        allocator->last_freed = clean_holes(allocator, new_block);
         return;
     }
 
@@ -144,7 +179,7 @@ void mem_free(Allocator* allocator, void* mem) {
     block->next = new_block;
     new_block->prev = block;
 
-    clean_holes(allocator);
+    clean_holes(allocator, new_block);
 }
 
 unsigned short remaining_space(Allocator* allocator) {
