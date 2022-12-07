@@ -1,6 +1,13 @@
 package ru.lib.tm;
 
+
 public class TmDat implements Comparable<TmDat> {
+    public TmDat(String paramName, int time, String razm, int attr) {
+        this.name = paramName;
+        this.time = time;
+        this.razm = razm;
+        this.attr = attr;
+    }
 
     @Override
     public int compareTo(TmDat other) {
@@ -9,16 +16,47 @@ public class TmDat implements Comparable<TmDat> {
         return name.compareTo(other.name);
     }
 
-    int num;
-    String name;
-    long time;
-    String razm;
-    int attr;
-    int type;
+    private short paramNum;
+    private int time;
+    private String name;
+    private String razm;
+    private int attr;
+    private int type;
 
     @Override
     public String toString() {
-        return "";
+        String res = String.join(
+                "\t",
+                name,
+                Integer.toString(time),
+                razm,
+                Integer.toHexString(attr)
+            );
+        return res;
     }
+
+	public short getParamNum() {
+		return paramNum;
+	}
+
+	public int getTime() {
+		return time;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public String getRazm() {
+		return razm;
+	}
+
+	public int getAttr() {
+		return attr;
+	}
+
+	public int getType() {
+		return type;
+	}
 }
 

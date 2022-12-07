@@ -1,18 +1,14 @@
 package ru.lib;
 
+import java.util.HashMap;
+
 public class XmlParamFinder {
-    public static String find(int number, XmlParamElement[] searchList)
+    public static String find(int number, HashMap<Integer, String> parameters)
     {
-        if (searchList == null) {
+        if (parameters == null) {
             return "";
         }
 
-        for (XmlParamElement element : searchList) {
-            if (element.number == number) {
-                return element.name;
-            }
-        }
-
-        return "";
+        return parameters.getOrDefault(number, "");
     }
 }

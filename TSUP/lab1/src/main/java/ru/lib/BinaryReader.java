@@ -1,248 +1,139 @@
 package ru.lib;
 
 import java.io.*;
-import java.nio.ByteBuffer;
-import java.util.TreeMap;
+import java.nio.MappedByteBuffer;
+import java.nio.channels.FileChannel;
+import java.util.HashMap;
 import java.util.TreeSet;
 
 import ru.lib.tm.*;
 
 public class BinaryReader {
-    // номер параметра служебного сообщения
-    protected final int SYSTEM_MESSAGE_PARAM = 0xFFFF;
-    private final short paramNumSize = 2;
-    private final short timeSize = 4;
-    private final short dimensionSize = 1;
 
+	public BinaryReader(String inputFilePath, HashMap<Integer, String>  xmlParamElements, HashMap<Integer, String> dimensions) throws IOException {
+        RandomAccessFile file = new RandomAccessFile(new File(inputFilePath), "r");
+        FileChannel channel = file.getChannel();
+        this.buffer = channel.map(FileChannel.MapMode.READ_ONLY, 0, channel.size());
 
-
-    protected BufferedInputStream inputStream;
-    protected BufferedWriter outputWriter;
-    protected XmlParamElement[] xmlParamElements;
-
-    protected int currentByte = 0;
-    protected String currentByteHex = "";
-
-    protected int codeLength = 0;
-    protected int valueType = 0;
-    protected int messageType = 0;
-    protected long milliseconds = 0;
-    protected int paramNumber = 0;
-    protected int position = -1;
-    protected String tmpString = "";
-
-    // New iteration
-    protected byte[] buffer;
-    protected short offset = 0;
-
-    protected Statistics statistics;
-
-    final static int BUFFER_SIZE = 4096;
-
-    public BinaryReader(String inputFilePath, String outputFilePath, XmlParamElement[] xmlParamElements) throws IOException {
-        this.inputStream = new BufferedInputStream(new FileInputStream(inputFilePath));
-        this.outputWriter = new BufferedWriter(new FileWriter(outputFilePath));
+        this.dimensions = dimensions;
         this.xmlParamElements = xmlParamElements;
         this.statistics = new Statistics();
-        this.buffer = new byte[BUFFER_SIZE];
     }
 
     public void ParseKnpTo(TreeSet<TmDat> tmSet) {
-        boolean parsedSuccessfully = true;
-        while (parsedSuccessfully) {
+        while (true) {
             try {
-                this.inputStream.readNBytes(this.buffer, this.offset, paramNumSize + timeSize);
-            } catch (IOException e) {
-                parsedSuccessfully = false;
+                int paramNum = this.buffer.getShort() & 0xFFFF;
+                // if (paramNum < 0)
+                int time = this.buffer.getInt();
+
+                if (isSystemMessage(paramNum)) {
+                    parseSystemMessage();
+                    this.statistics.systemFieldsNum++;
+                    continue;
+                }
+                if (paramNum > 8480) {
+                    System.out.println("ERROR wrong paramNum");
+                }
+
+                int dimension = this.buffer.get() & 0xFF;
+                String dimensionStr = DimensionFinder.find(this.dimensions, dimension);
+                int attributeAndValueType = this.buffer.get() & 0xFF;
+
+                int valueType = attributeAndValueType & 0xF;
+
+                TmDat field;
+                switch (valueType) {
+                    case 0:  // Long
+                        this.buffer.getInt(); // Skip
+                        int longValue = this.buffer.getInt();
+                        field = new TmLong(
+                                XmlParamFinder.find(paramNum, this.xmlParamElements),
+                                time, 
+                                dimensionStr,
+                                0xFFFF,
+                                longValue);
+                        break;
+                    case 1:  // Double
+                        double doubleValue = this.buffer.getDouble();
+                        field = new TmDouble(
+                                XmlParamFinder.find(paramNum, this.xmlParamElements),
+                                time,
+                                dimensionStr,
+                                (byte) ((attributeAndValueType & 0xF0) >> 8),
+                                doubleValue);
+                        break;
+                    case 2:  // Code
+                        this.buffer.getShort(); // Skip
+                        short codeLength = this.buffer.getShort();
+                        int code = this.buffer.getInt();
+                        field = new TmCode(
+                                XmlParamFinder.find(paramNum, this.xmlParamElements),
+                                time,
+                                dimensionStr,
+                                (byte) ((attributeAndValueType & 0xF0) >> 8),
+                                codeLength,
+                                code);
+                        break;
+                    case 3: // Point
+                        short elemSize = this.buffer.getShort();
+                        int bytesLength = this.buffer.getShort() & 0xFFFF;
+                        byte[] point = new byte[bytesLength];
+                        for (int i = 0; i < bytesLength; i++)
+                            point[i] = this.buffer.get();
+                        field = new TmPoint(
+                                XmlParamFinder.find(paramNum, this.xmlParamElements),
+                                time,
+                                dimensionStr,
+                                (byte) ((attributeAndValueType & 0xF0) >> 8),
+                                elemSize,
+                                point);
+                        break;
+                    default:
+                        System.out.println("PARSING ERROR: valueType=" + valueType);
+                        field = new TmDat(
+                                XmlParamFinder.find(paramNum, this.xmlParamElements),
+                                time,
+                                dimensionStr,
+                                (byte) ((attributeAndValueType & 0xF0) >> 8));
+
+                }
+                tmSet.add(field);
+                // if (tmSet.size() > 100)
+                //     break;
+
+            } catch (Exception e) {
+                System.err.println("Ну " + e + ", и " + e);
+                break; // For some reason we return in while loop
+            }
+            this.statistics.bytesNum = this.buffer.position();
+            this.statistics.usefulFieldsNum = tmSet.size();
+        }
+    }
+
+    public void printStatistics() {
+        System.out.println("usefulFieldsNum: " + statistics.usefulFieldsNum);
+        System.out.println("systemFieldsNum: " + statistics.systemFieldsNum);
+        System.out.println("bytesNum: " + statistics.bytesNum);
+    }
+
+    private void parseSystemMessage() {
+        int messageType = this.buffer.get() & 0xF;
+        this.buffer.get(); // valueType
+        switch (messageType) {
+            case 1:
+                this.buffer.getShort();
+                int messageLength = this.buffer.getShort() & 0xFFFF;
+                for (int i = 0; i < messageLength; i++)
+                    this.buffer.get();
                 break;
-            }
-            int paramNum = parseParamNum((short)0);
-            int time = parseTime(paramNumSize);
-
+            default:
+                this.buffer.getLong();
         }
     }
 
-
-    private int parseParamNum(short s) {
-        ByteBuffer wrapped = ByteBuffer.wrap(this.buffer, 0, paramNumSize);
-        return wrapped.getInt();
-	}
-
-	private int parseTime(short offset) {
-        ByteBuffer wrapped = ByteBuffer.wrap(this.buffer, paramNumSize, timeSize);
-        return wrapped.getInt();
-	}
-
-	public void readAndWrite() throws IOException {
-        while ((this.currentByte = this.inputStream.read()) != -1) {
-            this.currentByteHex = String.format("%02x", currentByte);
-
-            this.statistics.bytesNum++; this.position++;
-
-            switch (this.position) {
-                case 0, 1 -> this.getParamNumber();
-                case 2, 3, 4, 5 -> this.getMilliseconds();
-                case 6 -> this.getMessageType();
-                case 7 -> this.getValueType();
-                default -> this.getMessageValue();
-            }
-        }
-
-        System.out.println("File size: " + this.statistics.bytesNum + " bytes");
-        System.out.println("TM fields: " + this.statistics.usefulFieldsNum);
-        System.out.println("System fields: " + this.statistics.systemFieldsNum);
-        this.outputWriter.close();
-    }
-
-    protected void getParamNumber() throws IOException {
-        if (this.position == 0) {
-            this.tmpString = this.currentByteHex;
-        } else {
-            this.tmpString = this.tmpString + this.currentByteHex;
-            this.paramNumber = Integer.parseInt(this.tmpString, 16);
-
-            if (!this.isSystemMessage()) {
-                String paramName = XmlParamFinder.find(this.paramNumber, this.xmlParamElements);
-                this.outputWriter.write(paramName + ' ');
-                this.outputWriter.write(Integer.toString(this.paramNumber) + ' ');
-                this.statistics.usefulFieldsNum++;
-            } else {
-                this.statistics.systemFieldsNum++;
-            }
-        }
-    }
-
-    protected void getMilliseconds() throws IOException {
-        if (this.position == 2) {
-            this.tmpString = this.currentByteHex;
-        } else {
-            this.tmpString = this.tmpString + this.currentByteHex;
-            if (this.position == 5) {
-                this.milliseconds = Long.parseLong(this.tmpString, 16);
-
-                long seconds = this.milliseconds / 1000;
-                long hours = seconds / 3600;
-                long minutes = (seconds % 3600) / 60;
-                seconds %= 60;
-
-                if (!this.isSystemMessage())
-                    this.outputWriter.write(String.format("%02d:%02d:%02d", hours, minutes, seconds) + ',' + this.milliseconds + ' ');
-            }
-        }
-    }
-
-    protected void getMessageType() {
-        this.messageType = this.currentByte;
-    }
-
-    protected void getValueType() {
-        if (this.paramNumber == 65535) {
-            this.valueType = this.currentByte;
-        } else {
-            this.valueType = this.currentByte & 0xF; // 15 -> 00001111 bit mask
-        }
-    }
-
-    protected void getMessageValue() throws IOException {
-        if (this.position == 8) {
-            this.tmpString = "";
-        }
-
-        switch (this.valueType) {
-            // Long
-            case 0 -> this.getValueTypeLong();
-            // Double
-            case 1 -> this.getValueTypeDouble();
-            // Code
-            case 2 -> this.getValueTypeCode();
-            // Point
-            case 3 -> this.getValueTypePoint();
-        }
-    }
-
-    protected void getValueTypeLong() throws IOException {
-        // 8-11 байт не используется
-        if (this.position >= 8 && this.position <= 11) return;
-
-        this.tmpString = this.tmpString + this.currentByteHex;
-        if (this.position == 15) {
-
-            if (!this.isSystemMessage()) {
-                this.outputWriter.write(Long.toString(Long.parseLong(this.tmpString, 16)));
-                this.outputWriter.write('\n');
-            }
-            this.position = -1;
-        }
-    }
-
-    protected void getValueTypeDouble() throws IOException {
-        this.tmpString = this.tmpString + this.currentByteHex;
-
-        if (this.position == 15) {
-            if (!this.isSystemMessage()) {
-                try {
-                    this.outputWriter.write(Double.toString(Double.longBitsToDouble(Long.parseLong(this.tmpString, 16))));
-                } catch (NumberFormatException e) {
-                    this.outputWriter.write(" ERROR");
-                }
-                this.outputWriter.write('\n');
-            }
-            this.position = -1;
-        }
-    }
-
-    protected void getValueTypeCode() throws IOException {
-        // 8-11 байт не используется
-        if (this.position == 8 || this.position == 9) return;
-
-        // считаем длину кода
-        if (this.position == 10 || this.position == 11) {
-            this.tmpString = this.tmpString + this.currentByteHex;
-            if (this.position == 11) {
-                this.codeLength = Integer.parseInt(this.tmpString, 16);
-                if (!this.isSystemMessage())
-                    this.outputWriter.write("len:" + this.codeLength + ' ');
-            }
-        } else {
-            if (this.position == 12) {
-                this.tmpString = "";
-            }
-
-            // переводим байт в бинарное представление
-            this.tmpString = this.tmpString + (String.format("%8s", Integer.toBinaryString(this.currentByte)).replace(' ', '0'));
-            if (this.position == 15) {
-                if (!this.isSystemMessage()) {
-                    this.outputWriter.write(this.tmpString.substring(this.tmpString.length() - this.codeLength));
-                    this.outputWriter.write('\n');
-                }
-                this.position = -1;
-            }
-        }
-    }
-
-    protected void getValueTypePoint() throws IOException {
-        // 8-11 байт не используется
-        if (this.position == 8 || this.position == 9) return;
-
-        if (this.position == 10 || this.position == 11) {
-            this.tmpString = this.tmpString + this.currentByteHex;
-            if (this.position == 11) {
-                this.codeLength = Integer.parseInt(this.tmpString, 16);
-                if (!this.isSystemMessage())
-                    this.outputWriter.write("len:" + this.codeLength + ' ');
-            }
-        } else {
-            if (--this.codeLength == 0) {
-                if (!this.isSystemMessage()) {
-                    this.outputWriter.write("point\n");
-                }
-                this.position = -1;
-            }
-        }
-    }
-
-    protected boolean isSystemMessage() {
-        return this.paramNumber == this.SYSTEM_MESSAGE_PARAM;
+    static protected boolean isSystemMessage(int paramNum) {
+        return paramNum == SYSTEM_MESSAGE_PARAM;
     }
     
     private class Statistics {
@@ -250,4 +141,18 @@ public class BinaryReader {
         long systemFieldsNum = 0l;
         long bytesNum = 0l;
     }
+    // номер параметра служебного сообщения
+    protected static final int SYSTEM_MESSAGE_PARAM = 0xFFFF;
+
+    protected HashMap<Integer, String> xmlParamElements;
+
+
+    // New iteration
+    protected MappedByteBuffer buffer;
+    protected HashMap<Integer, String> dimensions;
+
+    protected short offset = 0;
+
+    protected Statistics statistics;
+
 }

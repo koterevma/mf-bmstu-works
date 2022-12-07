@@ -11,9 +11,10 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.File;
 import java.io.IOException;
+import java.util.HashMap;
 
 public class XmlReader {
-    public static XmlParamElement[] getData(String filePath) throws ParserConfigurationException, IOException, SAXException {
+    public static HashMap<Integer, String> getData(String filePath) throws ParserConfigurationException, IOException, SAXException {
         // открываем файл
         File inputFile = new File(filePath);
 
@@ -26,16 +27,16 @@ public class XmlReader {
         NodeList nList = doc.getElementsByTagName("Param");
 
         // подготавливаем данные
-        XmlParamElement[] tmp = new XmlParamElement[nList.getLength()];
+        HashMap<Integer, String> tmp = new HashMap<Integer, String>();
 
         // проходимся по всем элементам
         for (int i = 0; i < nList.getLength(); i++) {
             Node nNode = nList.item(i);
             if (nNode.getNodeType() == Node.ELEMENT_NODE) {
                 Element eElement = (Element) nNode;
-                tmp[i] = new XmlParamElement(
-                    eElement.getAttribute("name"),
-                    Integer.parseInt(eElement.getAttribute("number"))
+                tmp.put(
+                    Integer.parseInt(eElement.getAttribute("number")),
+                    eElement.getAttribute("name")
                 );
             }
         }
