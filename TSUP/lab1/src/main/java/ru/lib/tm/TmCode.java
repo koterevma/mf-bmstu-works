@@ -2,8 +2,8 @@ package ru.lib.tm;
 
 public class TmCode extends TmDat {
 
-	public TmCode(String paramName, int time, String razm, byte attr, short codeLength, int code) {
-		super(paramName, time, razm, attr);
+	public TmCode(String paramName, int time, String razm, int type, short codeLength, int code) {
+		super(paramName, time, razm, type);
         this.codeLength = codeLength;
         this.code = code;
 	}
@@ -11,7 +11,7 @@ public class TmCode extends TmDat {
     @Override
     public String toString() {
         String result = super.toString();
-        return result + "\t" + Short.toString(this.codeLength) + " - " + Integer.toString(code);
+        return result + "\t" + Short.toString(this.codeLength) + " - " +String.format("%8s", Integer.toBinaryString(code)).replace(' ', '0');
     }
 
 

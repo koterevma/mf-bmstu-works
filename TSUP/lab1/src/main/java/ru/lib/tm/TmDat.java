@@ -1,12 +1,17 @@
 package ru.lib.tm;
 
+import java.text.SimpleDateFormat;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.FormatStyle;
 
 public class TmDat implements Comparable<TmDat> {
-    public TmDat(String paramName, int time, String razm, int attr) {
+    public TmDat(String paramName, int time, String razm, int type) {
         this.name = paramName;
         this.time = time;
         this.razm = razm;
-        this.attr = attr;
+        this.type = type;
     }
 
     @Override
@@ -25,12 +30,14 @@ public class TmDat implements Comparable<TmDat> {
 
     @Override
     public String toString() {
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ISO_TIME;
+        LocalTime localTime = LocalTime.ofSecondOfDay(time / 1000);
         String res = String.join(
                 "\t",
                 name,
-                Integer.toString(time),
+                localTime.format(timeFormatter) + "," + time % 1000,
                 razm,
-                Integer.toHexString(attr)
+                Integer.toHexString(type)
             );
         return res;
     }

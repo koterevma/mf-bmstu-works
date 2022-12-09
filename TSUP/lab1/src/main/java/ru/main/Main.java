@@ -30,7 +30,7 @@ public class Main {
         BinaryReader binaryReader = new BinaryReader(dataBinKMP, data, dimensions);
         TreeSet<TmDat> fields = new TreeSet<TmDat>();
         binaryReader.ParseKnpTo(fields);
-        
+
         Writer outputFileWriter = new BufferedWriter(new FileWriter(outputFile));
         TmWriter.writeTo(outputFileWriter, fields);
 

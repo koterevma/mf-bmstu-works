@@ -60,7 +60,7 @@ public class BinaryReader {
                                 XmlParamFinder.find(paramNum, this.xmlParamElements),
                                 time,
                                 dimensionStr,
-                                (byte) ((attributeAndValueType & 0xF0) >> 8),
+                                valueType,
                                 doubleValue);
                         break;
                     case 2:  // Code
@@ -71,7 +71,7 @@ public class BinaryReader {
                                 XmlParamFinder.find(paramNum, this.xmlParamElements),
                                 time,
                                 dimensionStr,
-                                (byte) ((attributeAndValueType & 0xF0) >> 8),
+                                valueType,
                                 codeLength,
                                 code);
                         break;
@@ -85,7 +85,7 @@ public class BinaryReader {
                                 XmlParamFinder.find(paramNum, this.xmlParamElements),
                                 time,
                                 dimensionStr,
-                                (byte) ((attributeAndValueType & 0xF0) >> 8),
+                                valueType,
                                 elemSize,
                                 point);
                         break;
@@ -95,7 +95,7 @@ public class BinaryReader {
                                 XmlParamFinder.find(paramNum, this.xmlParamElements),
                                 time,
                                 dimensionStr,
-                                (byte) ((attributeAndValueType & 0xF0) >> 8));
+                                valueType);
 
                 }
                 tmSet.add(field);

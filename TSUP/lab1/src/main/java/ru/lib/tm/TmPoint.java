@@ -4,8 +4,8 @@ import java.util.HexFormat;
 
 public class TmPoint extends TmDat {
 
-	public TmPoint(String paramName, int time, String razm, byte attr, short elementSize, byte[] code) {
-		super(paramName, time, razm, attr);
+	public TmPoint(String paramName, int time, String razm, int type, short elementSize, byte[] code) {
+		super(paramName, time, razm, type);
         this.elementSize = elementSize;
         this.code = code;
 	}

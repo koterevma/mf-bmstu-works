@@ -2,8 +2,8 @@ package ru.lib.tm;
 
 public class TmLong extends TmDat {
 
-	public TmLong(String paramName, int time, String razm, int attr, int value) {
-		super(paramName, time, razm, attr);
+	public TmLong(String paramName, int time, String razm, int type, int value) {
+		super(paramName, time, razm, type);
         this.value = value;
 	}
 

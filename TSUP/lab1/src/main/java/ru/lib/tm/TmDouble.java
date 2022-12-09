@@ -2,8 +2,8 @@ package ru.lib.tm;
 
 public class TmDouble extends TmDat {
 
-	public TmDouble(String paramName, int time, String razm, byte attr, double value) {
-		super(paramName, time, razm, attr);
+	public TmDouble(String paramName, int time, String razm, int type, double value) {
+		super(paramName, time, razm, type);
         this.value = value;
 	}
 
