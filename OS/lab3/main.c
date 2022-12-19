@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -5,49 +6,57 @@
 #include <string.h>
 #include <locale.h>
 
-struct Parameters {
+#define NSTEP_N 100
+
+enum OP_TYPE {
+    O_WRITE,
+    O_READ,
+    O_TOTAL
+};
+
+typedef struct Parameters {
     int tracks;
     int heads;
     int sectors;
     int rpm;
-    int n;
     double tm;
     double tmax;
     double ts;
     double tr;
     double tw;
-};
+} Parameters;
 
 struct Parameters* pars;
 
-struct Request {
+typedef struct Request {
     double time;
     int track;
     int head;
     int sector;
-    int op;
-};
+    enum OP_TYPE op;
+} Request;
 
-struct Queue {
+typedef struct Queue {
     struct Request** reqs;
     int len;
     int size;
-};
+} Queue;
 
-struct Data {
+typedef struct Data {
     int totalProcessed;
     double* processTime;
     int maxQueue;
     double idleTime;
-};
+    size_t overflow_count;
+} Data;
 
 struct Request* generateReq(double t) {
     struct Request* req = (Request*)malloc(sizeof(struct Request));
     req->time = t + rand() % (int)pars->tmax;
     req->track = rand() % pars->tracks;
     req->head = rand() % pars->heads;
-    req->sector = rand() % pars->sectors;
-    req->op = rand() % 2;
+    req->sector = (rand() % pars->sectors) + 1;
+    req->op = rand() % O_TOTAL;
     return req;
 }
 
@@ -127,13 +136,12 @@ double AC(double* values, int len, double avg) {
     return sqrt(ac/len);
 }
 
-struct Parameters* initParameters(int tracks, int heads, int sectors, int rpm, int n, int tm, int tmax, double ts) {
+struct Parameters* initParameters(int tracks, int heads, int sectors, int rpm, int tm, int tmax, double ts) {
     struct Parameters* p = (Parameters*)malloc(sizeof(struct Parameters));
     p->tracks = tracks;
     p->heads = heads;
     p->sectors = sectors;
     p->rpm = rpm;
-    p->n = n;
     p->tm = tm;
     p->tmax = tmax;
     p->ts = ts;
@@ -160,13 +168,14 @@ void printResult(struct Queue* que, struct Data* data) {
     double maxPT = Max(data->processTime, data->totalProcessed);
     double avgPT = Avg(data->processTime, data->totalProcessed);
     double acPT = AC(data->processTime, data->totalProcessed, avgPT);
-    printf("Обработано запросов: %lu из %lu\n", data->totalProcessed, que->len);
+    printf("Обработано запросов: %d из %d\n", data->totalProcessed, que->len);
     printf("Минимальное время обслуживания: %f (мс)\n", minPT);
     printf("Максимальное время обслуживания: %f (мс)\n", maxPT);
     printf("Среднее время обслуживания: %f (мс)\n", avgPT);
     printf("Среднеквадратическое отклонение от среднего времени обслуживания: %f (мс)\n", acPT);
     printf("Максимальная длина очереди запросов: %i\n", data->maxQueue);
     printf("Время простоя дисковой подсистемы: %f (мс)\n", data->idleTime);
+    printf("Кол-во переполнения очереди запросов: %zu\n", data->overflow_count);
     int bin1 = 0;
     int bin10 = 0;
     int bin100 = 0;
@@ -199,11 +208,13 @@ struct Data* FIFO(struct Queue* q) {
     data->processTime = (double*)malloc(q->len*sizeof(double));
     data->maxQueue = 0;
     data->idleTime = 0;
+    data->overflow_count = 0;
     
     while (bufStart < q->len) {
         bufEnd = getLastOnTime(q, bufEnd, time);
         int que = bufEnd - bufStart;
-        if (que > data->maxQueue) data->maxQueue = que;
+        if (que > data->maxQueue)
+            data->maxQueue = que;
         if (que < 0) {
             struct Request* next = q->reqs[bufStart];
             data->idleTime += next->time - time;
@@ -244,23 +255,24 @@ int compareRequestsRev(const void* a, const void* b) {
     return 0;
 }
 
-
 struct Data* FSCAN(struct Queue* q) {
     int track = 0;
     int bufStart = 0;
     int bufEnd = -1;
     int dir = 1;
     double time = 0;
-    struct Data* data = (Data*)malloc(sizeof(struct Data));
+    Data* data = (Data*)malloc(sizeof(Data));
     data->totalProcessed = 0;
     data->processTime = (double*)malloc(q->len * sizeof(double));
     data->maxQueue = 0;
     data->idleTime = 0;
+    data->overflow_count = 0;
 
     while (bufStart < q->len) {
         bufEnd = getLastOnTime(q, bufEnd, time);
         int que = bufEnd - bufStart;
-        if (que > data->maxQueue) data->maxQueue = que;
+        if (que > data->maxQueue)
+            data->maxQueue = que;
         if (que < 0) {
             struct Request* next = q->reqs[bufStart];
             data->idleTime += next->time - time;
@@ -269,11 +281,13 @@ struct Data* FSCAN(struct Queue* q) {
         }
 
         int len = bufEnd - bufStart + 1;
-        if (len >= 100) {
-            printf("Overflow\n");
-            return NULL;
+        if (len >= NSTEP_N) {
+            data->overflow_count++;
+            bufEnd -= len - NSTEP_N;
+            len = NSTEP_N;
         }
-        struct Request* reqs[100];
+
+        Request* reqs[NSTEP_N];
         memcpy(reqs, q->reqs + bufStart, sizeof(reqs));
         qsort(reqs, len, sizeof(struct Request*), dir ? compareRequests:compareRequestsRev);
         for (int i = 0; i < len; i++) {
@@ -301,7 +315,7 @@ struct Data* FSCAN(struct Queue* q) {
 int main()
 {
     setlocale(LC_ALL, "Russian");
-    pars = initParameters(500, 4, 16, 10000, 1, 300000, 20, 0.5);
+    pars = initParameters(500, 4, 1, 10000, 5 * 50 * 1000, 20, 2);
     printParameters(pars);
     srand(time(0));
     struct Queue* q = generateQueue();
