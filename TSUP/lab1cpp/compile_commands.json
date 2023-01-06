@@ -1,0 +1,17 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/clang++",
+      "-g",
+      "-Wall",
+      "-std=c++20",
+      "-c",
+      "-o",
+      "main.o",
+      "main.cpp"
+    ],
+    "directory": "/home/mkoterev/Code/mf-bmstu-works/TSUP/lab1cpp",
+    "file": "/home/mkoterev/Code/mf-bmstu-works/TSUP/lab1cpp/main.cpp",
+    "output": "/home/mkoterev/Code/mf-bmstu-works/TSUP/lab1cpp/main.o"
+  }
+]
