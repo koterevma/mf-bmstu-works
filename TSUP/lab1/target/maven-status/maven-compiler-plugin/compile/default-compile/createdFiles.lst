@@ -1,0 +1,15 @@
+ru/lib/DimensionReader$1.class
+ru/lib/tm/TmDouble.class
+ru/lib/DimensionReader.class
+ru/lib/XmlParamFinder.class
+ru/lib/tm/TmDat.class
+ru/lib/tm/TmCode.class
+ru/lib/XmlReader.class
+ru/lib/tm/TmWriter.class
+ru/lib/BinaryReader.class
+ru/lib/BinaryReader$Statistics.class
+ru/lib/XmlParamElement.class
+ru/lib/tm/TmPoint.class
+ru/main/Main.class
+ru/lib/DimensionFinder.class
+ru/lib/tm/TmLong.class
